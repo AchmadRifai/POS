@@ -5,7 +5,8 @@
  */
 package achmad.rifai.pos;
 
-import java.text.ParseException;
+import java.awt.EventQueue;
+import java.lang.reflect.InvocationTargetException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -20,9 +21,10 @@ public class App {
      */
     public static void main(String[] args) {
         try {
-            achmad.rifai.pos.utils.Uang u=new achmad.rifai.pos.utils.Uang("Rp10.000,00");
-            System.out.println("" + u.getVal());
-        } catch (ParseException ex) {
+            EventQueue.invokeAndWait(() -> {
+                new achmad.rifai.pos.ui.Splash().setVisible(true);
+            });
+        } catch (InterruptedException | InvocationTargetException ex) {
             Logger.getLogger(App.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
