@@ -83,10 +83,10 @@ public class Splash extends javax.swing.JFrame {
     }
 
     private void konfigurasi() {
-        try {
+        prog.setValue(30); try {
             Work.awalan();
         } catch (SQLException ex) {
             Work.hindar(ex);
-        } prog.setValue(30);
+        } prog.setValue(60);
     }
 }
