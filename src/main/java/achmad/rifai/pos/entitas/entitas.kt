@@ -44,4 +44,7 @@ data class ItemPasokBS(var brg:SatuanBarang,var qty:Int,var beli:Uang)
 data class ItemBackBS(var brg:SatuanBarang,var qty:Int,var beli:Uang)
 data class Retur(var kode:String,var waktu:Timestamp,var catat:Transaksi,var jum:Uang,var sup:Suplier,var item:List<ItemRetur>)
 data class ItemRetur(var brg:SatuanBarang,var qty:Int,var back:Uang)
-//
+//jual
+data class Jual(var nota:String,var tgl:Date,var waktu:Timestamp,var tot:Uang,var byr:Uang,var kbl:Uang,var pot:Uang,var catat:Transaksi,
+                var item:List<ItemJual>)
+data class ItemJual(var brg:SatuanBarang,var qty:Int,var hrg:Uang)
