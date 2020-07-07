@@ -5,6 +5,10 @@
  */
 package achmad.rifai.pos.utils;
 
+import achmad.rifai.pos.entitas.Transaksi;
+import achmad.rifai.pos.entitas.dao.*;
+import org.jetbrains.annotations.NotNull;
+
 import java.io.IOException;
 import java.sql.SQLException;
 import java.sql.Types;
@@ -21,9 +25,28 @@ public class Work {
     public static void awalan() throws SQLException {
         Db d = new Db();
         d.exec("create table if not exists rusak(tgl bigint not null,msg text not null,src text not null)");
-        d.exec("create table if not exists koneksi(host text not null,nm text not null,port int not null,uid text not null,"
-                + "pwd text not null)");
+        d.exec("create table if not exists koneksi(host text not null,nm text not null,port int not null," +
+                "uid text not null,pwd text not null)");
         d.close();
+    }
+
+    public static void buatDB() throws SQLException {
+        Db d=loadDb();
+        DAO dao=new DAOPerusahaan(d);
+        dao.create();
+        dao=new DAOJabatan(d);
+        dao.create();
+        dao=new DAORegister(d);
+        dao.create();
+        dao=new DAOPegawai(d);
+        dao.create();
+        dao=new DAOTransaksi(d);
+        dao.create();
+        d.close();
+    }
+
+    public static Db loadDb() throws SQLException {
+        return new Db();
     }
 
     public static void hindar(Exception ex) {
@@ -41,6 +64,15 @@ public class Work {
             d.close();
         } catch (SQLException ex1) {
             Logger.getLogger(Work.class.getName()).log(Level.SEVERE, null, ex1);
+        }
+    }
+
+    public static void tataRegister() {
+        try {
+            Db d=loadDb();
+            d.close();
+        } catch (SQLException e) {
+            hindar(e);
         }
     }
 }
