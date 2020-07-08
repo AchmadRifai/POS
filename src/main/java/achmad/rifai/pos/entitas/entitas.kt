@@ -31,9 +31,9 @@ data class Piutang(var kode:Int,var jum:Uang,var tgl:Date,var ket:String,var cat
 data class Dicicil(var catat:Transaksi)
 data class Cicilan(var catat:Transaksi)
 //gudang
-data class Suplier(var kode:String,var nm:String,var almt:String,var sal:List<Sales>,var dri:List<Shipper>)
-data class Sales(var kode:String,var nm:String,var tlp:String,var almt:String)
-data class Shipper(var kode:String,var nm:String,var tlp:String,var almt:String)
+data class Suplier(var kode:String,var nm:String,var almt:String,var tlp:String,var sal:List<Sales>,var dri:List<Shipper>)
+data class Sales(var nm:String,var tlp:String,var almt:String)
+data class Shipper(var nm:String,var tlp:String,var almt:String)
 data class Kategori(var kode:String,var nm:String,var bars:List<Barang>)
 data class Barang(var kode:String,var nm:String,var bs:Boolean,var sat:List<SatuanBarang>)
 data class SatuanBarang(var barkode:String,var nm:String,var jual:Uang,var beli:Uang,var stok:Long,var cap:Int,

@@ -64,13 +64,13 @@ class DAOPerusahaan(val d:Db):DAO<Perusahaan,String>{
 
     override fun insert(v: Perusahaan?) {
         d.exec("insert into perusahaan values(?)", Params(v!!.nm, Types.VARCHAR))
-        fillCabang(v)
+        Thread{fillCabang(v)}.start()
     }
 
     override fun update(w: String?, v: Perusahaan?) {
         d.exec("delete from cabang where comp=?", Params(w!!,Types.VARCHAR))
         d.exec("update perusahaan set nm=? where nm=?", Params(v!!.nm,Types.VARCHAR), Params(w, Types.VARCHAR))
-        fillCabang(v)
+        Thread{fillCabang(v)}.start()
     }
 
     private fun fillCabang(v: Perusahaan) {
@@ -250,18 +250,17 @@ class DAOPegawai(val d:Db):DAO<Pegawai,String> {
         d.exec("insert into pegawai values(?,?,?,?,?,?,?)", Params(v!!.uid,Types.VARCHAR),
                 Params(v.jab.kode,Types.INTEGER),Params(v.pwd,Types.VARCHAR), Params(v.nm,Types.VARCHAR),
                 Params(v.almt,Types.VARCHAR), Params(v.tlp,Types.VARCHAR),Params(v.masuk,Types.BOOLEAN))
-        fillPegawai(v)
+        Thread{fillPegawai(v)}.start()
     }
 
     override fun update(w: String?, v: Pegawai?) {
         d.exec("delete from jejak where dari=?", Params(w!!,Types.VARCHAR))
         d.exec("delete from absen where dari=?", Params(w,Types.VARCHAR))
-        d.exec("update pegawai set uid=?,jab=?,pwd=?,nm=?,almt=?,tlp=?,masuk=? where uid=?",
-                Params(v!!.uid,Types.VARCHAR),
+        d.exec("update pegawai set uid=?,jab=?,pwd=?,nm=?,almt=?,tlp=?,masuk=? where uid=?",Params(v!!.uid,Types.VARCHAR),
         Params(v.jab.kode,Types.INTEGER),Params(v.pwd,Types.VARCHAR), Params(v.nm,Types.VARCHAR),
                 Params(v.almt,Types.VARCHAR), Params(v.tlp,Types.VARCHAR), Params(v.masuk,Types.BOOLEAN),
                 Params(w,Types.VARCHAR))
-        fillPegawai(v)
+        Thread{fillPegawai(v)}.start()
     }
 
     private fun fillPegawai(v: Pegawai) {
@@ -346,9 +345,9 @@ class DAOTransaksi(val d:Db):DAO<Transaksi,String> {
 
 class DAOHutang(val d:Db):DAO<Hutang,Int>{
     override fun create() {
-        d.exec("create table hutang(kode int primary key AUTO_INCREMENT,jum decimal(20,20)not null,tgl date not null," +
-                "ket text not null,catat varchar(40)not null)")
-        d.exec("create table cicilan(hut int not null,catat varchar(40)not null)")
+        d.exec("create table if not exists hutang(kode int primary key AUTO_INCREMENT,jum decimal(20,20)not null," +
+                "tgl date not null,ket text not null,catat varchar(40)not null)")
+        d.exec("create table if not exists cicilan(hut int not null,catat varchar(40)not null)")
         d.exec("alter table hutang add foreign key(catat)references transaksi(nota)on update cascade on delete cascade")
         d.exec("alter table cicilan add foreign key(hut)references hutang(kode)on update cascade on delete cascade")
         d.exec("alter table cicilan add foreign key(catat)references transaksi(nota)on update cascade on delete cascade")
@@ -365,23 +364,177 @@ class DAOHutang(val d:Db):DAO<Hutang,Int>{
     }
 
     override fun one(w: Int?): Hutang {
-        TODO("Not yet implemented")
+        val dao=DAOTransaksi(d)
+        val h=Hutang(w!!,Uang(BigDecimal.ZERO),Date.valueOf(LocalDate.now()),"",dao.one(""),emptyList())
+        for (i in d.hasil("select jum,tgl,ket,catat from hutang where kode=?",Params(w,Types.INTEGER))){
+            h.catat=dao.one(i["catat"]!!.`val`.toString())
+            h.jum= Uang(i["jum"]!!.`val`as BigDecimal)
+            h.ket=i["ket"]!!.`val`.toString()
+            h.tgl=i["tgl"]!!.`val`as Date
+            h.cicil=thisCicil(w)
+        }
+        return h
+    }
+
+    private fun thisCicil(w: Int): List<Cicilan> {
+        val l= emptyList<Cicilan>()
+        val dao=DAOTransaksi(d)
+        for (i in d.hasil("select catat from cicilan where hut=?",Params(w,Types.INTEGER))){
+            l.plus(dao.one(i["catat"]!!.`val`.toString()))
+        }
+        return l
     }
 
     override fun all(): MutableList<Hutang> {
-        TODO("Not yet implemented")
+        val l= mutableListOf<Hutang>()
+        val r=d.hasil("select kode from hutang")
+        while (r.next())l.plus(one(r.getInt("kode")))
+        r.close()
+        return l
     }
 
     override fun insert(v: Hutang?) {
-        TODO("Not yet implemented")
+        d.exec("insert into hutang values(?,?,?,?,?)", Params(v!!.kode,Types.INTEGER), Params(v.jum.`val`,Types.DECIMAL),
+        Params(v.tgl,Types.DATE), Params(v.ket,Types.VARCHAR), Params(v.catat.nota,Types.VARCHAR))
+        Thread{fillCicilan(v)}.start()
     }
 
     override fun update(w: Int?, v: Hutang?) {
-        TODO("Not yet implemented")
+        d.exec("delete from cicilan where hut=?", Params(w!!,Types.INTEGER))
+        d.exec("update hutang set kode=?,jum=?,tgl=?,ket=?,catat=? where kode=?", Params(v!!.kode,Types.INTEGER),
+        Params(v.jum.`val`,Types.DECIMAL),Params(v.tgl,Types.DATE),Params(v.ket,Types.VARCHAR), Params(v.catat.nota,Types.VARCHAR),
+        Params(w,Types.INTEGER))
+        Thread{fillCicilan(v)}.start()
+    }
+
+    private fun fillCicilan(v: Hutang) {
+        for (c in v.cicil)d.exec("insert into cicilan values(?,?)", Params(v.kode,Types.INTEGER), Params(c.catat.nota,Types.VARCHAR))
     }
 
     override fun delete(w: Int?) {
+        d.exec("delete from cicilan where hut=?",Params(w!!,Types.INTEGER))
+        d.exec("delete from hutang where kode=?", Params(w,Types.INTEGER))
+    }
+}
+
+class DAOPiutang(val d:Db):DAO<Piutang,Int> {
+    override fun create() {
+        d.exec("create table if not exists piutang(kode int primary key AUTO_INCREMENT,jum decimal(20,20)not null," +
+                "tgl date not null,ket text not null,catat varchar(40)not null)")
+        d.exec("create table if not exists dicicil(piu int not null,catat varchar(40)not null)")
+        d.exec("alter table piutang add foreign key(catat)references transaksi(nota)on update cascade on delete cascade")
+        d.exec("alter table dicicil add foreign key(piu)references hutang(kode)on update cascade on delete cascade")
+        d.exec("alter table dicicil add foreign key(catat)references transaksi(nota)on update cascade on delete cascade")
+    }
+
+    override fun drop() {
+        d.exec("drop table dicicil")
+        d.exec("drop table piutang")
+    }
+
+    override fun clean() {
+        d.exec("delete from dicicil")
+        d.exec("delete from piutang")
+    }
+
+    override fun one(w: Int?): Piutang {
+        val dao=DAOTransaksi(d)
+        val p=Piutang(w!!, Uang(BigDecimal.ZERO), Date.valueOf(LocalDate.now()),"",dao.one(""), emptyList())
+        for (i in d.hasil("select*from piutang where kode=?",Params(w,Types.INTEGER))) {
+            p.cicil=allDicicil(w)
+            p.catat=dao.one(i["catat"]!!.`val`.toString())
+            p.jum= Uang(i["jum"]!!.`val`as BigDecimal)
+            p.ket=i["ket"]!!.`val`.toString()
+            p.tgl=i["tgl"]!!.`val`as Date
+        }
+        return p
+    }
+
+    private fun allDicicil(w: Int): List<Dicicil> {
+        val l= emptyList<Dicicil>()
+        val dao=DAOTransaksi(d)
+        for (i in d.hasil("select catat from dicicil where piu=?",Params(w,Types.INTEGER))){
+            val di=Dicicil(dao.one(i["catat"]!!.`val`.toString()))
+            l.plus(di)
+        }
+        return l
+    }
+
+    override fun all(): MutableList<Piutang> {
+        val l= mutableListOf<Piutang>()
+        val r=d.hasil("select kode from piutang order by tgl desc")
+        while (r.next())l.add(one(r.getInt("kode")))
+        r.close()
+        return l
+    }
+
+    override fun insert(v: Piutang?) {
+        d.exec("insert into piutang values(?,?,?,?,?)", Params(v!!.kode,Types.INTEGER), Params(v.jum.`val`,Types.DECIMAL),
+        Params(v.tgl,Types.DATE), Params(v.ket,Types.VARCHAR), Params(v.catat.nota,Types.VARCHAR))
+        Thread{fillDicicil(v)}.start()
+    }
+
+    override fun update(w: Int?, v: Piutang?) {
+        d.exec("delete from dicicil where piu=?", Params(w!!,Types.INTEGER))
+        d.exec("update piutang set kode=?,jum=?,tgl=?,ket=?,catat=? where kode=?", Params(v!!.kode,Types.INTEGER),
+        Params(v.jum.`val`,Types.DECIMAL), Params(v.tgl,Types.DATE), Params(v.ket,Types.VARCHAR),
+                Params(v.catat.nota,Types.VARCHAR), Params(w,Types.INTEGER))
+        Thread{fillDicicil(v)}.start()
+    }
+
+    private fun fillDicicil(v: Piutang) {
+        for (i in v.cicil)d.exec("insert into dicicil values(?,?)", Params(v.kode,Types.INTEGER), Params(i.catat.nota,Types.VARCHAR))
+    }
+
+    override fun delete(w: Int?) {
+        d.exec("delete from dicicil where piu=?", Params(w!!,Types.INTEGER))
+        d.exec("delete from piutang where kode=?", Params(w,Types.INTEGER))
+    }
+}
+
+class DAOSuplier(val d:Db):DAO<Suplier,String> {
+    override fun create() {
+        d.exec("create table if not exists suplier(kode varchar(15)primary key,nm text not null,almt text not null," +
+                "tlp text not null)")
+        d.exec("create table if not exists sales(nm text not null,tlp text not null,almt text not null,sup varchar(15)not null)")
+        d.exec("create table if not exists shipper(nm text not null,tlp text not null,almt text not null,sup varchar(15)not null)")
+        d.exec("alter table sales add foreign key(sup)references suplier(kode)on update cascade on delete cascade")
+        d.exec("alter table shipper add foreign key(sup)references suplier(kode)on update cascade on delete cascade")
+    }
+
+    override fun drop() {
+        d.exec("drop table shipper")
+        d.exec("drop table sales")
+        d.exec("drop table suplier")
+    }
+
+    override fun clean() {
+        d.exec("delete from shipper")
+        d.exec("delete from sales")
+        d.exec("delete from suplier")
+    }
+
+    override fun one(w: String?): Suplier {
         TODO("Not yet implemented")
+    }
+
+    override fun all(): MutableList<Suplier> {
+        TODO("Not yet implemented")
+    }
+
+    override fun insert(v: Suplier?) {
+        TODO("Not yet implemented")
+    }
+
+    override fun update(w: String?, v: Suplier?) {
+        d.exec("delete from shipper where sup=?", Params(w!!,Types.VARCHAR))
+        d.exec("delete from sales where sup=?", Params(w,Types.VARCHAR))
+    }
+
+    override fun delete(w: String?) {
+        d.exec("delete from shipper where sup=?", Params(w!!,Types.VARCHAR))
+        d.exec("delete from sales where sup=?", Params(w,Types.VARCHAR))
+        d.exec("delete from suplier where kode=?", Params(w,Types.VARCHAR))
     }
 }
 
